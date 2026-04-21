@@ -1,81 +1,82 @@
 import flet as ft
-from db.main import init
-from db.queries import add_product, get_products, update_product, delete_product
+
+from db.main_db import init_db
+from db.queries import add_product, get_products, toggle_done, delete_product
+
 
 def main(page: ft.Page):
     page.title = "Список покупок"
-    
-    init()
+    page.window_width = 400
+    page.window_height = 600
 
-    input_field = ft.TextField(label="Новый товар")
+    init_db()
+
+    name_input = ft.TextField(label="Товар")
+    qty_input = ft.TextField(label="Количество", value="1")
     list_view = ft.Column()
+    counter = ft.Text("Куплено: 0")
 
-    sort_type = ft.Dropdown(
-        options=[
-            ft.dropdown.Option("all", "Все"),
-            ft.dropdown.Option("done", "Купленные"),
-            ft.dropdown.Option("not_done", "Не купленные")
-        ],
-        value="all"
-    )
+    current_filter = {"value": "all"}
 
     def load_products():
         list_view.controls.clear()
         products = get_products()
+        done_count = 0
 
-        for product in products:
-            id, name, done = product
+        for p in products:
+            pid, name, qty, done = p
 
-            if sort_type.value == "done" and not done:
+            if done:
+                done_count += 1
+
+            if current_filter["value"] == "done" and not done:
                 continue
-            if sort_type.value == "not_done" and done:
+            if current_filter["value"] == "not_done" and done:
                 continue
 
-            checkbox = ft.Checkbox(
-                label=name,
-                value=bool(done),
-                on_change=lambda e, id=id:
-                    toggle_done(id, e.control.value)
-            )
+            def change(e, pid=pid):
+                toggle_done(pid, e.control.value)
+                load_products()
 
-            delete_btn = ft.IconButton(
-                icon=ft.Icons.DELETE,
-                on_click=lambda e, id=id:
-                    delete(id)
-            )
+            def remove(e, pid=pid):
+                delete_product(pid)
+                load_products()
 
-            row = ft.Row([checkbox, delete_btn])
+            row = ft.Row([
+                ft.Checkbox(value=bool(done), on_change=change),
+                ft.Text(f"{name} ({qty})"),
+                ft.IconButton(ft.Icons.DELETE, on_click=remove)
+            ])
+
             list_view.controls.append(row)
 
-        page.update()
+        counter.value = f"Куплено: {done_count}"
+        list_view.update()
+        counter.update()
 
-
-    def toggle_done(id, value):
-        update_product(id, int(value))
+    def set_filter(value):
+        current_filter["value"] = value
         load_products()
 
-
-    def delete(id):
-        delete_product(id)
-        load_products()
-
+    btn_all = ft.ElevatedButton("Все", on_click=lambda e: set_filter("all"))
+    btn_done = ft.ElevatedButton("Купленные", on_click=lambda e: set_filter("done"))
+    btn_not_done = ft.ElevatedButton("Не купленные", on_click=lambda e: set_filter("not_done"))
 
     def add(e):
-        if input_field.value:
-            add_product(input_field.value)
-            input_field.value = ""
+        if name_input.value:
+            add_product(name_input.value, int(qty_input.value or 1))
+            name_input.value = ""
+            qty_input.value = "1"
+            name_input.update()
+            qty_input.update()
             load_products()
 
-
-    add_btn = ft.ElevatedButton("Add", on_click=add)
-
-    sort_type.on_change = lambda e: load_products()
+    add_btn = ft.ElevatedButton("Добавить", on_click=add)
 
     page.add(
-        ft.Text("Список покупок", size=30),
-        input_field,
-        add_btn,
-        sort_type,
+        ft.Row([name_input, qty_input, add_btn]),
+        ft.Row([btn_all, btn_done, btn_not_done]),
+        counter,
         list_view
     )
 

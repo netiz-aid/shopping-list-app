@@ -1,59 +1,34 @@
-from .main_db import get_connection
+import sqlite3
+from config import DB_NAME
 
-def create_table():
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS products (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        is_done INTEGER DEFAULT 0
-    )
-    """)
-
-    conn.commit()
-    conn.close()
-    
-def add_product(name):
-    conn = get_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("INSERT INTO products (name) VALUES (?)", (name,))
-    
+def add_product(name, quantity):
+    conn = sqlite3.connect(DB_NAME)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO products (name, quantity) VALUES (?, ?)", (name, quantity))
     conn.commit()
     conn.close()
 
 
 def get_products():
-    conn = get_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT * FROM products")
-    data = cursor.fetchall()
-    
+    conn = sqlite3.connect(DB_NAME)
+    cur = conn.cursor()
+    cur.execute("SELECT id, name, quantity, done FROM products")
+    rows = cur.fetchall()
     conn.close()
-    return data
+    return rows
 
 
-def update_product(product_id, status):
-    conn = get_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute(
-        "UPDATE products SET is_done=? WHERE id=?",
-        (status, product_id)
-    )
-    
+def toggle_done(product_id, value):
+    conn = sqlite3.connect(DB_NAME)
+    cur = conn.cursor()
+    cur.execute("UPDATE products SET done=? WHERE id=?", (int(value), product_id))
     conn.commit()
     conn.close()
 
 
 def delete_product(product_id):
-    conn = get_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("DELETE FROM products WHERE id=?", (product_id,))
-    
+    conn = sqlite3.connect(DB_NAME)
+    cur = conn.cursor()
+    cur.execute("DELETE FROM products WHERE id=?", (product_id,))
     conn.commit()
     conn.close()
